@@ -1,5 +1,6 @@
+import exp = require("constants");
 import { Workbook, Worksheet } from "exceljs";
-import { Action, Condition, Rule, Step } from "../models";
+import { Action, Condition, Explanation, Rule, Step } from "../models";
 
 export class Engine {
   public readonly steps: Step[] = [];
@@ -32,24 +33,34 @@ export class Engine {
    */
   public async process(
     fact: Record<string, any>, 
-    extraContextVariables?: Record<string, any>,    
+    extraContextVariables?: Record<string, any>,
+    explain?: boolean
   ): Promise<{
     result: Record<string, any>,
     context: Record<string, any>,
     fact: Record<string, any>,
+    explanation?: Explanation,
   }> {
+    const explanation = new Explanation();
     const result: Record<string, any> = {};
 
     // create a copy of the context and fact
-    const context = JSON.parse(JSON.stringify({
+    const context = structuredClone({
       ...this.context,
       ...(extraContextVariables ?? {})
-    }));
-    fact = JSON.parse(JSON.stringify(fact));
+    });
+    fact = structuredClone(fact);
+
+    if (explain) {
+      explanation.recordInitial(fact, result, context);
+    }
 
     for (const step of this.steps) {
       this.log(`Processing step "${step.name}"...`);
       let breakPoint = false;
+      if (explain) {
+        explanation.recordStepStart(step.name, fact, result, context);
+      }
       for (const rule of step.rules) {
         this.log(`Processing step "${step.name}" rule "${rule.name}"...`);
         let apply = true;
@@ -71,18 +82,31 @@ export class Engine {
             breakPoint = true;
             break;
           }
+
+          if (explain) {
+            explanation.recordStepRule(rule.name);
+          }
         }
       }   
       
+      if (explain) {
+        explanation.recordStepEnd(fact, result, context, breakPoint);       
+      }
+
       if (breakPoint) {
         break;
       }
     }
 
+    if (explain) {
+      explanation.recordFinal(fact, result, context);
+    }
+
     return {
       result,
       context,
-      fact
+      fact,
+      explanation: explain ? explanation : undefined,
     };
   }
 

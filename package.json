@@ -8,6 +8,9 @@
     "build": "tsc",
     "test": "nyc --reporter=html --reporter=text mocha"
   },
+  "engines": {
+    "node": ">=18.14.0"
+  },
   "keywords": ["rule", "engine", "excel", "spreadsheet"],
   "author": "Vladyslav Tkachenko",
   "license": "MIT",

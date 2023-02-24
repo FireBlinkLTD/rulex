@@ -15,9 +15,18 @@ const engine = new RulexEngine(console.log);
 // Init engine with rules Excel file
 await engine.init("path/to/rules.xlsx");
 
-// Process fact with the engine
+// Process fact
 // Note: returned fact will be a different object, so fact !== initialFact not just by type, but also values may be different if they were modified by actions
 const {fact, context, result} = await engine.process(initialFact);
+
+// Process fact with extra default context variables 
+const {fact, context, result} = await engine.process(initialFact, {
+  extraContextVariable: true
+});
+
+// Process fact and get detailed explanation (for debug purposes)
+// Make sure not to use the debug property in production as it adds a performance hit
+const {fact, context, result, explanation} = await engine.process(initialFact, {}, true);
 ```
 
 ## Excel File

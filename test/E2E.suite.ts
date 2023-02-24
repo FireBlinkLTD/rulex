@@ -85,6 +85,17 @@ class E2ESuite {
   } 
 
   @test()
+  async "Explain"(): Promise<void> {
+    const engine = await this.prepareEngine();
+
+    const payload = this.payload;
+    const result = await engine.process(payload, {}, true);
+
+    strictEqual(result.explanation.stepStates.length, 4);
+    strictEqual(result.explanation.stepStates[0].appliedRules.length, 5);    
+  } 
+
+  @test()
   async "Step 1 - Condition + Action"(): Promise<void> {
     const engine = await this.prepareEngine();
 
@@ -124,7 +135,7 @@ class E2ESuite {
     strictEqual(result.context.step4, true);
 
     payload.break = true;
-    result = await engine.process(payload);
+    result = await engine.process(payload, {}, true);
     strictEqual(result.context.step4, undefined);
   }
 }
