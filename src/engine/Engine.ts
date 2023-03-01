@@ -1,3 +1,4 @@
+import { equal } from "assert";
 import exp = require("constants");
 import { Workbook, Worksheet } from "exceljs";
 import { Action, Condition, Explanation, Rule, Step } from "../models";
@@ -14,14 +15,15 @@ export class Engine {
   /**
    * Init Engine
    * @param rulesFilePath 
+   * @param test
    */
-  public async init(rulesFilePath: string): Promise<void> {
+  public async init(rulesFilePath: string, test: boolean = false): Promise<void> {
     for (const key of Object.keys(this.context)) {
       delete this.context[key];
     };
     this.steps.splice(0, this.steps.length);
 
-    await this.readExcelFile(rulesFilePath);    
+    await this.readExcelFile(rulesFilePath, test);    
   }
 
   /**
@@ -113,11 +115,13 @@ export class Engine {
   /**
    * Read Excel file and generate step definitions
    * @param rulesFilePath 
+   * @param test
    */
-  private async readExcelFile(rulesFilePath: string): Promise<void> {
+  private async readExcelFile(rulesFilePath: string, test: boolean): Promise<void> {
     this.log(`Reading excel file ${rulesFilePath}`);
     const workbook = await new Workbook().xlsx.readFile(rulesFilePath);
 
+    let testWorksheetNames: string[] = [];
     workbook.eachSheet((worksheet: Worksheet) => {
       const name = worksheet.name.toLowerCase().trim();
       if (name === 'context') {
@@ -126,9 +130,15 @@ export class Engine {
         return;
       }
 
-      /* istanbul ignore else */
       if (name.indexOf('step') === 0) { 
         this.readStepWorksheet(worksheet);
+
+        return;
+      }   
+      
+      /* istanbul ignore else */
+      if (test && name.indexOf('test') === 0) {
+        testWorksheetNames.push(worksheet.name);
 
         return;
       }
@@ -139,7 +149,102 @@ export class Engine {
       return a.name.toLowerCase().trim().localeCompare(b.name.toLowerCase().trim());
     });
 
+    for (const testWorksheetName of testWorksheetNames) {
+      await this.readTestWorksheet(workbook.getWorksheet(testWorksheetName));
+    }
+
     this.log(`Finished reading excel file, found ${this.steps.length} step(s)`);
+  }
+
+  /**
+   * Read tests worksheet and execute it
+   * @param worksheet 
+   */
+  private async readTestWorksheet(worksheet: Worksheet): Promise<void> {
+    this.log(`Reading "${worksheet.name}" to run self testing`);
+    let tests: {
+      name: string,
+      initial: {
+        fact: Record<string, any>,
+        context: Record<string, any>,
+      },
+      expected: {
+        fact: Record<string, any>,
+        context: Record<string, any>,
+        result: Record<string, any>,
+      }
+    }[] = [];
+
+    let name = '';
+    let initial: Action[] = [];
+    let expected: Action[] = [];
+    
+    this.readWorksheet(
+      worksheet, 
+      ['name'], 
+      (n, v, rawName) => {
+        if (n === 'name') {
+          name = v;
+
+          return;
+        }
+
+        if (n.indexOf('set ') === 0) {
+          initial.push(new Action(`${rawName.substring('set '.length)} = ${Action.INITIAL_VALUE_VAR}`, v));
+        }
+
+        if (n.indexOf('expect ') === 0) {
+          expected.push(new Action(`${rawName.substring('expect '.length)} = ${Action.INITIAL_VALUE_VAR}`, v));
+        }
+      },
+      () => {
+        // prepare initial state
+        const fact = {};
+        const context = {};        
+        initial.forEach(a => a.process(context, fact, {}));
+        
+        // prepare expected state
+        const expectedFact = {};
+        const expectedContext = {}; 
+        const expectedResult = {}; 
+        expected.forEach(e => e.process(expectedContext, expectedFact, expectedResult));
+
+        tests.push({
+          name,
+          initial: {
+            fact,
+            context,
+          },
+          expected: {
+            fact: expectedFact,
+            context: expectedContext,
+            result: expectedResult,
+          }
+        })
+
+        name = null;
+        initial = [];
+        expected = [];
+      }
+    );
+
+    for (const test of tests) {
+      this.log(`Running "${test.name}" test`);
+      const { fact, context, result } = await this.process(test.initial.fact, test.initial.context);
+
+      for (const key of Object.keys(test.expected.context)) {
+        equal(context[key], test.expected.context[key], `Test "${test.name}". Expected context.${key} to be strictly equal: ${JSON.stringify(test.expected.context[key])} !== ${JSON.stringify(context[key])}`);
+      }
+
+      for (const key of Object.keys(test.expected.fact)) {
+        equal(fact[key], test.expected.fact[key], `Test "${test.name}". Expected fact.${key} to be strictly equal: ${JSON.stringify(test.expected.fact[key])} !== ${JSON.stringify(fact[key])}`);
+      }
+
+      for (const key of Object.keys(test.expected.result)) {
+        console.log('@', result);
+        equal(result[key], test.expected.result[key], `Expected fact.${key} to be strictly equal: ${JSON.stringify(test.expected.result[key])} !== ${JSON.stringify(result[key])}`);
+      }
+    }
   }
 
   /**
@@ -147,7 +252,7 @@ export class Engine {
    * @param worksheet    
    */
   private readContextWorksheet(worksheet: Worksheet): void {
-    this.log(`Reading "${worksheet.name}" for context variables`);   
+    this.log(`Reading "${worksheet.name}" for context variables`);
     let name: string;
     let value: any;
     this.readWorksheet(
@@ -167,10 +272,10 @@ export class Engine {
           return;
         }
       },
-      () => {      
+      () => {
         this.context[name] = value;
         name = undefined;
-        value = undefined;
+        value = undefined;        
       }
     );    
   }
@@ -201,11 +306,16 @@ export class Engine {
         }
 
         if (name.indexOf('if ') === 0) {
-          const key = rawName.substring(3);
+          const key = rawName.substring('if '.length);
           if (value === null) {
             rule.conditions.push(new Condition(`true`));
           } else {
-            rule.conditions.push(new Condition(`${key} == ${value}`));
+            if (value instanceof Date) {
+              rule.conditions.push(new Condition(`${key}?.getTime() == ${Condition.INITIAL_VALUE_VAR}?.getTime()`, value));
+            } else {
+              rule.conditions.push(new Condition(`${key} == ${value}`));
+            }
+            
           }          
         }
 
@@ -219,9 +329,13 @@ export class Engine {
         }
 
         if (name.indexOf('set ') === 0) {
-          const key = rawName.substring(3);
+          const key = rawName.substring('set '.length);
           if (value !== null) {
-            rule.actions.push(new Action(`${key} = ${value}`));
+            if (value instanceof Date) {
+              rule.actions.push(new Action(`${key} = ${Action.INITIAL_VALUE_VAR}`, value));
+            } else {
+              rule.actions.push(new Action(`${key} = ${value}`));
+            }            
           }
         }
 

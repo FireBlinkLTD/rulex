@@ -85,6 +85,21 @@ class E2ESuite {
   } 
 
   @test()
+  async "Test"(): Promise<void> {
+    const engine = await this.prepareEngine();
+    
+    let error: Error;
+    try {
+      // re-init and test this time
+      await engine.init(E2ESuite.FILE, true);
+    } catch (e) {
+      error = e;
+    }
+
+    strictEqual(error, undefined);    
+  } 
+
+  @test()
   async "Explain"(): Promise<void> {
     const engine = await this.prepareEngine();
 
@@ -115,15 +130,18 @@ class E2ESuite {
 
     const payload = this.payload;
     let result = await engine.process(payload);
-    strictEqual(result.context.step2, 1);   
+    strictEqual(result.context.step2, 1);
+    strictEqual(result.context.step2date.getTime(), new Date('2022-01-01').getTime());
     
     payload.boolValue = false;
     result = await engine.process(payload);
     strictEqual(result.context.step2, 2);
+    strictEqual(result.context.step2date.getTime(), new Date('2022-01-02').getTime());
 
     payload.boolValue = null;
     result = await engine.process(payload);
     strictEqual(result.context.step2, 3);
+    strictEqual(result.context.step2date.getTime(), new Date('2022-01-03').getTime());
   }
 
   @test()
