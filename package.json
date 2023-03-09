@@ -11,6 +11,9 @@
   "engines": {
     "node": ">=18.14.0"
   },
+  "bin": {
+    "rulex": "dist/src/cli.js"
+  },
   "keywords": ["rule", "engine", "excel", "spreadsheet"],
   "author": "Vladyslav Tkachenko",
   "license": "MIT",

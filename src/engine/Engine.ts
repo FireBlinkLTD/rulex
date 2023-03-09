@@ -241,7 +241,6 @@ export class Engine {
       }
 
       for (const key of Object.keys(test.expected.result)) {
-        console.log('@', result);
         equal(result[key], test.expected.result[key], `Expected fact.${key} to be strictly equal: ${JSON.stringify(test.expected.result[key])} !== ${JSON.stringify(result[key])}`);
       }
     }
