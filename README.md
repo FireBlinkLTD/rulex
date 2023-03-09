@@ -76,3 +76,15 @@ All the column names are case agnostic, e.g. `name` and `Name` are both valid de
 - `name` - required column that defines the test name, duplicated names across rows are allowed
 - `set {property}` - optional column that sets the value in the cell to `{property}`, e.g. `fact.something`
 - `expect {property}` - optional column that expects value in the cell to match `{property}` after execution, e.g. `result.something` 
+
+## CLI
+
+In order to help with testing the engine file rules ships with a simple CLI that will load file and run all the tests.
+
+```bash
+# installation
+npm i -g rulex
+
+# usage
+rulex path/to/rules.xlsx
+```
