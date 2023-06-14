@@ -304,6 +304,24 @@ export class Engine {
           return;
         }
 
+        if (name.indexOf('in ')  === 0) {
+          const key = rawName.substring('if '.length);
+          if (value === null) {
+            rule.conditions.push(new Condition(`true`));
+          } else {
+            rule.conditions.push(new Condition(`[${value}].indexOf(${key}) >= 0`));
+          }
+        }
+
+        if (name.indexOf('out ')  === 0) {
+          const key = rawName.substring('if '.length);
+          if (value === null) {
+            rule.conditions.push(new Condition(`true`));
+          } else {
+            rule.conditions.push(new Condition(`[${value}].indexOf(${key}) < 0`));
+          }
+        }
+
         if (name.indexOf('if ') === 0) {
           const key = rawName.substring('if '.length);
           if (value === null) {
@@ -314,7 +332,6 @@ export class Engine {
             } else {
               rule.conditions.push(new Condition(`${key} == ${value}`));
             }
-            
           }          
         }
 

@@ -57,7 +57,9 @@ All the column names are case agnostic, e.g. `action` and `Action` are both vali
 
 - `name` - required column that defines rule name
 - `condition` - optional column that evaluates the expression in each cell, empty cells cause condition to **pass**
-- `if {property}` - optional column that compares the value in each cell with `{property}`, empty cells couse comparison to **pass**
+- `if {property}` - optional column that compares the value in each cell with `{property}`, empty cells cause comparison to **pass**
+- `in {property}` - optional column that compares the `{property}` with any value in the comma-separated list of the cell value, match cause condition to **pass**
+- `out {property}` - optional column that compares the `{property}` with any value in the comma-separated list of the cell value, mismatch cause condition to **pass**
 - `action` - optional column that evaluates the expression in the cell if all conditions and `if` comparisons are true, blank cells will be ignored
 - `set {property}` - optional column that sets the value in the cell to `{property}` if all conditions and `if` comparisons are true, blank cells will be ignored
 

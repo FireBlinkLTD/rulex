@@ -106,7 +106,7 @@ class E2ESuite {
     const payload = this.payload;
     const result = await engine.process(payload, {}, true);
 
-    strictEqual(result.explanation.stepStates.length, 4);
+    strictEqual(result.explanation.stepStates.length, 5);
     strictEqual(result.explanation.stepStates[0].appliedRules.length, 5);    
   } 
 
@@ -145,15 +145,29 @@ class E2ESuite {
   }
 
   @test()
-  async "Step 3 - Break"(): Promise<void> {
+  async "Step 3 - In and Out"(): Promise<void> {
     const engine = await this.prepareEngine();
 
     const payload = this.payload;
     let result = await engine.process(payload);
-    strictEqual(result.context.step4, true);
+    strictEqual(result.context.step3int_in, true);
+    strictEqual(result.context.step3int_out, true);
+    strictEqual(result.context.step3str_in, true);
+    strictEqual(result.context.step3str_out, true);
+    strictEqual(result.context.step3last_in, undefined);
+    strictEqual(result.context.step3last_out, undefined);
+  }
+
+  @test()
+  async "Step 4 - Break"(): Promise<void> {
+    const engine = await this.prepareEngine();
+
+    const payload = this.payload;
+    let result = await engine.process(payload);
+    strictEqual(result.context.step5, true);
 
     payload.break = true;
     result = await engine.process(payload, {}, true);
-    strictEqual(result.context.step4, undefined);
+    strictEqual(result.context.step5, undefined);
   }
 }
