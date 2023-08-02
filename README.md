@@ -31,7 +31,11 @@ const {fact, context, result} = await engine.process(initialFact, {
 // ... or
 // Process fact and get detailed explanation (for debug purposes)
 // Make sure not to use the debug property in production as it adds a performance hit
-const {fact, context, result, explanation} = await engine.process(initialFact, {}, true);
+try {
+  const {fact, context, result, explanation} = await engine.process(initialFact, {}, true);
+} catch (ruleError) {
+  // custom handler for the RuleError
+}
 ```
 
 ## Excel File
@@ -58,10 +62,15 @@ All the column names are case agnostic, e.g. `action` and `Action` are both vali
 - `name` - required column that defines rule name
 - `condition` - optional column that evaluates the expression in each cell, empty cells cause condition to **pass**
 - `if {property}` - optional column that compares the value in each cell with `{property}`, empty cells cause comparison to **pass**
+- `if not {property}` - optional column that compares the value in each cell with `{property}`, condition passes when values do not match, empty cells cause comparison to **pass**
 - `in {property}` - optional column that compares the `{property}` with any value in the comma-separated list of the cell value, match cause condition to **pass**
 - `out {property}` - optional column that compares the `{property}` with any value in the comma-separated list of the cell value, mismatch cause condition to **pass**
+- `type {property}` - optional column that compares the value in each cell with `{property}` type, empty cells cause comparison to **pass**, allowed values: `string`, `number`
+- `type not {property}` - optional column that compares the value in each cell with `{property}` type, condition passes when values do not match, empty cells cause comparison to **pass**
 - `action` - optional column that evaluates the expression in the cell if all conditions and `if` comparisons are true, blank cells will be ignored
 - `set {property}` - optional column that sets the value in the cell to `{property}` if all conditions and `if` comparisons are true, blank cells will be ignored
+- `break` - optional column that will cause engine to stop immediately if condition passes and value of the break cell is true, can be used to terminate the execution
+- `error[ code]` - similar to `break` column, but will cause engine to throw an `RuleError` with a message as the value in the cell, `code` is optional in the name. Examples: `error`, `error 404`
 
 ### Context Worksheet Columns
 
@@ -71,6 +80,7 @@ All the column names are case agnostic, e.g. `value` and `Value` are both valid 
 - `value` - required column that defines the context variable value
 
 Context values are set before processing steps and can be references with `context` object, e.g `context.something` or `context['something']`
+
 ### Test Worksheet Columns
 
 All the column names are case agnostic, e.g. `name` and `Name` are both valid definitions.
@@ -78,6 +88,19 @@ All the column names are case agnostic, e.g. `name` and `Name` are both valid de
 - `name` - required column that defines the test name, duplicated names across rows are allowed
 - `set {property}` - optional column that sets the value in the cell to `{property}`, e.g. `fact.something`
 - `expect {property}` - optional column that expects value in the cell to match `{property}` after execution, e.g. `result.something` 
+
+### RuleError
+
+RuleError is thrown when `break` column rule triggers.
+
+Error exposes following properties:
+- `message` - the value of the cell
+- `code` - optional code provided in the column header, if not provided value will be a blank string
+- `step` - name of the step (worksheet) where error was triggered
+- `rule` - matches the `name` column value for the row where error was triggered
+- `explanation` - optional explanation object, only available when `process` is invoked with explanation flag 
+- `context` - context state when error ocurred
+- `fact` - state of the fact when error ocurred
 
 ## CLI
 

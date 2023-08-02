@@ -23,4 +23,12 @@ export class Condition {
   public process(context: Record<string, any>, fact: Record<string, any>, result: Record<string, any>): boolean {
     return this.script.run(context, fact, result, this.initialValue);
   }
+
+  /**
+   * Prepare string representation of a condition
+   * @returns 
+   */
+  public toString(): string {
+    return this.raw.replace(Condition.INITIAL_VALUE_VAR, this.initialValue);
+  }
 }

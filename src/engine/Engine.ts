@@ -2,6 +2,7 @@ import { equal } from "assert";
 import exp = require("constants");
 import { Workbook, Worksheet } from "exceljs";
 import { Action, Condition, Explanation, Rule, Step } from "../models";
+import { RuleError } from "../errors";
 
 export class Engine {
   public readonly steps: Step[] = [];
@@ -57,18 +58,25 @@ export class Engine {
       explanation.recordInitial(fact, result, context);
     }
 
+    let errorRule: Rule = null;
+    let errorStep: string;
     for (const step of this.steps) {
       this.log(`Processing step "${step.name}"...`);
       let breakPoint = false;
+      
       if (explain) {
         explanation.recordStepStart(step.name, fact, result, context);
       }
+
       for (const rule of step.rules) {
         this.log(`Processing step "${step.name}" rule "${rule.name}"...`);
         let apply = true;
+        let i = 0;
         for (const condition of rule.conditions) {
+          i++;
           apply = condition.process(context, fact, result);
           if (!apply) {
+            this.log(`Step "${step.name}" rule "${rule.name}" condition #${i} doesn't apply: ${condition}`);
             break;
           }
         }
@@ -82,6 +90,14 @@ export class Engine {
           if (rule.break) {
             this.log(`Step "${step.name}" rule "${rule.name}" hit break point`);
             breakPoint = true;
+            break;
+          }
+
+          if (rule.error) {
+            this.log(`Step "${step.name}" rule "${rule.name}" hit error point`);
+            breakPoint = true;
+            errorRule = rule;   
+            errorStep = step.name;         
             break;
           }
 
@@ -103,12 +119,25 @@ export class Engine {
     if (explain) {
       explanation.recordFinal(fact, result, context);
     }
+    
+    const finalExplanation = explain ? explanation : undefined;
+    if (errorRule) {
+      throw new RuleError(
+        errorRule.error,
+        errorRule.errorCode,
+        errorStep,
+        errorRule.name,
+        finalExplanation,
+        context,
+        fact,
+      );      
+    }
 
     return {
       result,
       context,
       fact,
-      explanation: explain ? explanation : undefined,
+      explanation: finalExplanation,
     };
   }
 
@@ -304,8 +333,13 @@ export class Engine {
           return;
         }
 
+        if (name.indexOf('error')  === 0) {
+          rule.error = value;
+          rule.errorCode = rawName.substring('error '.length);
+        }
+
         if (name.indexOf('in ')  === 0) {
-          const key = rawName.substring('if '.length);
+          const key = rawName.substring('in '.length);
           if (value === null) {
             rule.conditions.push(new Condition(`true`));
           } else {
@@ -314,7 +348,7 @@ export class Engine {
         }
 
         if (name.indexOf('out ')  === 0) {
-          const key = rawName.substring('if '.length);
+          const key = rawName.substring('out '.length);
           if (value === null) {
             rule.conditions.push(new Condition(`true`));
           } else {
@@ -323,16 +357,40 @@ export class Engine {
         }
 
         if (name.indexOf('if ') === 0) {
-          const key = rawName.substring('if '.length);
+          let conditionString = 'if ';
+          const reverse = name.indexOf('if not ') === 0;          
+          if (reverse) {
+            conditionString += 'not ';
+          }
+          const key = rawName.substring(conditionString.length);
           if (value === null) {
             rule.conditions.push(new Condition(`true`));
           } else {
             if (value instanceof Date) {
-              rule.conditions.push(new Condition(`${key}?.getTime() == ${Condition.INITIAL_VALUE_VAR}?.getTime()`, value));
+              rule.conditions.push(new Condition(`${reverse ? '!' : ''}(${key}?.getTime() == ${Condition.INITIAL_VALUE_VAR}?.getTime())`, value));
             } else {
-              rule.conditions.push(new Condition(`${key} == ${value}`));
+              rule.conditions.push(new Condition(`${reverse ? '!' : ''}(${key} == ${value})`));
             }
           }          
+        }
+
+        if (name.indexOf('type ') === 0) {
+          let conditionString = 'type ';
+          const reverse = name.indexOf('type not ') === 0;          
+          if (reverse) {
+            conditionString += 'not ';
+          }
+
+          const key = rawName.substring(conditionString.length);
+          if (value === null) {
+            rule.conditions.push(new Condition(`true`));
+          } else {
+            if (value.toLowerCase() === 'date') {
+              rule.conditions.push(new Condition(`${reverse ? '!' : ''}(Object.prototype.toString.call(${key}) === '[object Date]')`));
+            } else {
+              rule.conditions.push(new Condition(`${reverse ? '!' : ''}(typeof ${key} == ${Condition.INITIAL_VALUE_VAR})`, value));
+            }            
+          } 
         }
 
         if (name === 'condition') {
@@ -362,8 +420,8 @@ export class Engine {
         }
       },
       () => {
-        // only rules with name and at least one action or break point should participate in logic
-        if (rule.name && (rule.actions.length || rule.break)) {
+        // only rules with name and at least one action, break or error point should participate in logic
+        if (rule.name && (rule.actions.length || rule.break || rule.error)) {
           rules.push(rule);
         }
         rule = new Rule();

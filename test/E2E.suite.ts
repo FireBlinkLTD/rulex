@@ -1,6 +1,6 @@
 import {suite, test} from '@testdeck/mocha';
-import { strictEqual } from 'assert';
-import RulexEngine from '../src';
+import { ok, strictEqual } from 'assert';
+import RulexEngine, { RuleError } from '../src';
 
 @suite()
 class E2ESuite {
@@ -20,9 +20,9 @@ class E2ESuite {
   }
 
   /**
-   * Prepares a payload
+   * Prepares a fact
    */
-  private get payload(): Record<string, any> {
+  private get fact(): Record<string, any> {
     return {
       boolValue: true,
       intValue: 5,
@@ -30,6 +30,7 @@ class E2ESuite {
       dateValue: new Date('2023-01-01'),
       strValue: 'string with spaces',
       break: false,
+      error: false,
     }
   }
 
@@ -78,8 +79,8 @@ class E2ESuite {
   async "Extra Context variables"(): Promise<void> {
     const engine = await this.prepareEngine();
 
-    const payload = this.payload;
-    const result = await engine.process(payload, { extraVariable: true });
+    const fact = this.fact;
+    const result = await engine.process(fact, { extraVariable: true });
 
     strictEqual(result.context.extraVariable, true);    
   } 
@@ -103,10 +104,10 @@ class E2ESuite {
   async "Explain"(): Promise<void> {
     const engine = await this.prepareEngine();
 
-    const payload = this.payload;
-    const result = await engine.process(payload, {}, true);
+    const fact = this.fact;
+    const result = await engine.process(fact, {}, true);
 
-    strictEqual(result.explanation.stepStates.length, 5);
+    strictEqual(result.explanation.stepStates.length, 6);
     strictEqual(result.explanation.stepStates[0].appliedRules.length, 5);    
   } 
 
@@ -114,8 +115,8 @@ class E2ESuite {
   async "Step 1 - Condition + Action"(): Promise<void> {
     const engine = await this.prepareEngine();
 
-    const payload = this.payload;
-    const result = await engine.process(payload);
+    const fact = this.fact;
+    const result = await engine.process(fact);
 
     strictEqual(result.context['Simple Condition'], true);
     strictEqual(result.context['Complex Condition'], true);    
@@ -128,28 +129,31 @@ class E2ESuite {
   async "Step 2 - If + Set"(): Promise<void> {
     const engine = await this.prepareEngine();
 
-    const payload = this.payload;
-    let result = await engine.process(payload);
+    const fact = this.fact;
+    let result = await engine.process(fact);
     strictEqual(result.context.step2, 1);
     strictEqual(result.context.step2date.getTime(), new Date('2022-01-01').getTime());
+    strictEqual(result.context.step2IfNotValue, undefined);
     
-    payload.boolValue = false;
-    result = await engine.process(payload);
+    fact.boolValue = false;
+    result = await engine.process(fact);
     strictEqual(result.context.step2, 2);
     strictEqual(result.context.step2date.getTime(), new Date('2022-01-02').getTime());
+    strictEqual(result.context.step2IfNotValue, true);
 
-    payload.boolValue = null;
-    result = await engine.process(payload);
+    fact.boolValue = null;
+    result = await engine.process(fact);
     strictEqual(result.context.step2, 3);
     strictEqual(result.context.step2date.getTime(), new Date('2022-01-03').getTime());
+    strictEqual(result.context.step2IfNotValue, true);
   }
 
   @test()
   async "Step 3 - In and Out"(): Promise<void> {
     const engine = await this.prepareEngine();
 
-    const payload = this.payload;
-    let result = await engine.process(payload);
+    const fact = this.fact;
+    let result = await engine.process(fact);
     strictEqual(result.context.step3int_in, true);
     strictEqual(result.context.step3int_out, true);
     strictEqual(result.context.step3str_in, true);
@@ -159,15 +163,48 @@ class E2ESuite {
   }
 
   @test()
-  async "Step 4 - Break"(): Promise<void> {
+  async "Step 5 - Type"(): Promise<void> {
     const engine = await this.prepareEngine();
 
-    const payload = this.payload;
-    let result = await engine.process(payload);
-    strictEqual(result.context.step5, true);
+    const fact = this.fact;
+    let result = await engine.process(fact);
+    strictEqual(result.context.step4, 1);
+    strictEqual(result.context.step4blank, 1);
+  }
 
-    payload.break = true;
-    result = await engine.process(payload, {}, true);
-    strictEqual(result.context.step5, undefined);
+  @test()
+  async "Step 5 - Break"(): Promise<void> {
+    const engine = await this.prepareEngine();
+
+    const fact = this.fact;
+    let result = await engine.process(fact);
+    strictEqual(result.context.step6, true);
+
+    fact.break = true;
+    result = await engine.process(fact, {}, true);
+    strictEqual(result.context.step6, undefined);
+  }
+
+  @test()
+  async "Step 5 - Error"(): Promise<void> {
+    const engine = await this.prepareEngine();
+
+    const fact = this.fact;
+    fact.error = true;
+    let error: RuleError;
+    try {
+      await engine.process(fact, {}, true);
+    } catch (err) {      
+      error = err;
+    }
+    
+    ok(error);
+    ok(error instanceof RuleError);
+    ok(error.context);
+    ok(error.fact);
+    strictEqual(error.message, "fact.error couldn't be true");
+    strictEqual(error.code, "E-Test");
+    strictEqual(error.step, 'Step 5 - Break');
+    strictEqual(error.rule, 'Error');
   }
 }

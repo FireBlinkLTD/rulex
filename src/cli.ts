@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import {Engine} from './engine/Engine';
+import { RuleError } from './errors';
 
 let filePath = process.argv[2];
 
@@ -20,6 +21,11 @@ const run = async () => {
 } 
 
 run().catch((err) => {
-  console.error(err);
+  if (err instanceof RuleError) {
+    console.error(`Rule "${err.rule}" error occurred on step "${err.step}" with code "${err.code}" and message "${err.message}"`);
+  } else {
+    console.error(err);
+  }
+  
   process.exit(1);
 });

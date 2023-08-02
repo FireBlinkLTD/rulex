@@ -6,4 +6,6 @@ export class Rule {
   public conditions: Condition[] = [];
   public actions: Action[] = [];
   public break: boolean = false;
+  public error: string = null;
+  public errorCode: string = null;
 }
