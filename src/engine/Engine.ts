@@ -261,16 +261,24 @@ export class Engine {
       this.log(`Running "${test.name}" test`);
       const { fact, context, result } = await this.process(test.initial.fact, test.initial.context);
 
-      for (const key of Object.keys(test.expected.context)) {
-        equal(context[key], test.expected.context[key], `Test "${test.name}". Expected context.${key} to be strictly equal: ${JSON.stringify(test.expected.context[key])} !== ${JSON.stringify(context[key])}`);
-      }
+      try {
+        for (const key of Object.keys(test.expected.context)) {
+          equal(context[key], test.expected.context[key], `Test "${test.name}". Expected context.${key} to be strictly equal: ${JSON.stringify(test.expected.context[key])} !== ${JSON.stringify(context[key])}`);
+        }
 
-      for (const key of Object.keys(test.expected.fact)) {
-        equal(fact[key], test.expected.fact[key], `Test "${test.name}". Expected fact.${key} to be strictly equal: ${JSON.stringify(test.expected.fact[key])} !== ${JSON.stringify(fact[key])}`);
-      }
+        for (const key of Object.keys(test.expected.fact)) {
+          equal(fact[key], test.expected.fact[key], `Test "${test.name}". Expected fact.${key} to be strictly equal: ${JSON.stringify(test.expected.fact[key])} !== ${JSON.stringify(fact[key])}`);
+        }
 
-      for (const key of Object.keys(test.expected.result)) {
-        equal(result[key], test.expected.result[key], `Expected fact.${key} to be strictly equal: ${JSON.stringify(test.expected.result[key])} !== ${JSON.stringify(result[key])}`);
+        for (const key of Object.keys(test.expected.result)) {
+          equal(result[key], test.expected.result[key], `Expected fact.${key} to be strictly equal: ${JSON.stringify(test.expected.result[key])} !== ${JSON.stringify(result[key])}`);
+        }
+      } catch (err) {
+        this.log(`Test "${test.name}" failed`);
+        console.log('\nFact:\n', JSON.stringify(fact, null, 2));
+        console.log('\nContext:\n', JSON.stringify(context, null, 2));
+        console.log('\nResult:\n', JSON.stringify(result, null, 2));
+        throw err;
       }
     }
   }
