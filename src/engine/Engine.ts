@@ -275,9 +275,9 @@ export class Engine {
         }
       } catch (err) {
         this.log(`Test "${test.name}" failed`);
-        console.log('\nFact:\n', JSON.stringify(fact, null, 2));
-        console.log('\nContext:\n', JSON.stringify(context, null, 2));
-        console.log('\nResult:\n', JSON.stringify(result, null, 2));
+        this.log('\nFact:\n' + JSON.stringify(fact, null, 2));
+        this.log('\nContext:\n' + JSON.stringify(context, null, 2));
+        this.log('\nResult:\n' + JSON.stringify(result, null, 2));
         throw err;
       }
     }
