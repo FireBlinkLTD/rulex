@@ -108,7 +108,17 @@ class E2ESuite {
     const result = await engine.process(fact, {}, true);
 
     strictEqual(result.explanation.stepStates.length, 6);
-    strictEqual(result.explanation.stepStates[0].appliedRules.length, 5);    
+    strictEqual(result.explanation.stepStates[0].appliedRules.length, 7);    
+  } 
+
+  @test()
+  async "Dependency"(): Promise<void> {
+    const engine = await this.prepareEngine();
+
+    const fact = this.fact;
+    const result = await engine.process(fact);
+
+    strictEqual(result.context['dependency'], true);
   } 
 
   @test()
