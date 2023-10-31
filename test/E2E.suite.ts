@@ -35,6 +35,15 @@ class E2ESuite {
   }
 
   @test()
+  async readTable(): Promise<void> {
+    const engine = await this.prepareEngine();
+    const context = engine.readTable('Context');
+    strictEqual(context.length, 5);
+    strictEqual(context[0].Name, 'initBoolValue');
+    strictEqual(context[0].Value, true);    
+  }
+
+  @test()
   async "Context"(): Promise<void> {
     const engine = await this.prepareEngine();
 

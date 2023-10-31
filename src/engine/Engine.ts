@@ -1,4 +1,4 @@
-import { equal } from "assert";
+import { equal, ok } from "assert";
 import exp = require("constants");
 import { Workbook, Worksheet } from "exceljs";
 import { Action, Condition, Explanation, Rule, Step } from "../models";
@@ -7,6 +7,7 @@ import { RuleError } from "../errors";
 export class Engine {
   public readonly steps: Step[] = [];
   public readonly context: Record<string, any> = {};
+  private workbook: Workbook;
 
   constructor(
     private log?: (msg: string) => void,
@@ -148,7 +149,7 @@ export class Engine {
    */
   private async readExcelFile(rulesFilePath: string, test: boolean): Promise<void> {
     this.log(`Reading excel file ${rulesFilePath}`);
-    const workbook = await new Workbook().xlsx.readFile(rulesFilePath);
+    const workbook = this.workbook = await new Workbook().xlsx.readFile(rulesFilePath);
 
     let testWorksheetNames: string[] = [];
     workbook.eachSheet((worksheet: Worksheet) => {
@@ -442,6 +443,32 @@ export class Engine {
   }
 
   /**
+   * Read table in a worksheet
+   * @param worksheetName 
+   * @returns 
+   */
+  public readTable(worksheetName: string): Array<Record<string, any>> {
+    ok(this.workbook, `Engine is not initialized, please run "init" method first`);
+    const result: Record<string, any>[] = [];
+
+    const worksheet = this.workbook.getWorksheet(worksheetName);
+    let row: Record<string, any> = {};    
+    this.readWorksheet(
+      worksheet, 
+      [], 
+      (name: string, value: any, rawName: string) => {
+        row[rawName] = value;
+      },
+      () => {
+        result.push(row);
+        row = {};
+      }
+    );
+
+    return result;
+  }
+
+  /**
    * Read worksheet rows
    * Note: all keys are in lowercase
    * @param worksheet 
@@ -487,10 +514,7 @@ export class Engine {
             forEachCell(key, cell.value, rawKey);
           }
         }
-        worksheetRow.eachCell((cell, colNumber) => {
-          
-        });
-
+        
         forEachRowEnd();
       }
     });    
